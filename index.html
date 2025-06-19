@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Product Tree - iPhone Supply Chain</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            margin-right: 5px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            background: #3498db;
+            color: white;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+        }
+
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn.success {
+            background: #28a745;
+        }
+
+        .btn.success:hover {
+            background: #218838;
+        }
+
+        .btn.warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn.warning:hover {
+            background: #e0a800;
+        }
+
+        .orientation-toggle {
+            display: flex;
+            background: #e9ecef;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .orientation-toggle button {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            color: #495057;
+        }
+
+        .orientation-toggle button.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .orientation-toggle button:hover:not(.active) {
+            background: #dee2e6;
+        }
+
+        #tree-container {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .node rect {
+            fill: #fff;
+            stroke: #3498db;
+            stroke-width: 2px;
+            rx: 6;
+            ry: 6;
+            cursor: pointer;
+        }
+
+        .node rect:hover {
+            fill: #ecf0f1;
+            stroke: #2980b9;
+            stroke-width: 3px;
+        }
+
+        .node.collapsed rect {
+            fill: #3498db;
+            stroke: #2980b9;
+        }
+
+        .node.collapsed text {
+            fill: white;
+        }
+
+        .node text {
+            font: 12px sans-serif;
+            fill: #333;
+            text-anchor: middle;
+            pointer-events: none;
+            font-weight: 500;
+        }
+
+        .link {
+            fill: none;
+            stroke: #bdc3c7;
+            stroke-width: 2px;
+        }
+
+        .stage-1 rect { border: 3px solid #e74c3c; }
+        .stage-2 rect { border: 3px solid #f39c12; }
+        .stage-3 rect { border: 3px solid #27ae60; }
+
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .control-group {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            #tree-container {
+                height: 500px;
+            }
+            
+            .node text {
+                font-size: 10px;
+            }
+            
+            .btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #tree-container {
+                height: 400px;
+            }
+            
+            .node text {
+                font-size: 9px;
+            }
+        }
+
+        .instructions {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+        }
+
+        .instructions p {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .divider {
+            width: 1px;
+            height: 30px;
+            background: #dee2e6;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Interactive iPhone Supply Chain Tree</h1>
+        
+        <div class="instructions">
+            <p><strong>Instructions:</strong> Click on any blue box to expand or collapse that branch. Use the controls below to change orientation and expand/collapse all nodes. Drag to pan and use mouse wheel to zoom.</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>Orientation:</label>
+                <div class="orientation-toggle">
+                    <button id="vertical-btn" class="active">Vertical</button>
+                    <button id="horizontal-btn">Horizontal</button>
+                </div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="control-group">
+                <label>Tree Actions:</label>
+                <button id="expand-all-btn" class="btn success">Expand All</button>
+                <button id="collapse-all-btn" class="btn warning">Collapse All</button>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="control-group">
+                <label>View:</label>
+                <button id="reset-zoom-btn" class="btn secondary">Reset Zoom</button>
+            </div>
+        </div>
+
+        <div id="tree-container"></div>
+    </div>
+
+    <script>
+        // Data structure for your product hierarchy
+        const treeData = {
+            name: "iPhone",
+            stage: 1,
+            children: [
+                {
+                    name: "LG",
+                    stage: 2,
+                    children: [
+                        { name: "iPhone 13", stage: 3 }
+                    ]
+                },
+                {
+                    name: "Samsung",
+                    stage: 2,
+                    children: [
+                        { name: "iPhone 12", stage: 3 },
+                        { name: "iPhone 15", stage: 3 }
+                    ]
+                },
+                {
+                    name: "BOE",
+                    stage: 2,
+                    children: [
+                        { name: "iPhone X", stage: 3 }
+                    ]
+                }
+            ]
+        };
+
+        class InteractiveCollapsibleTree {
+            constructor(data, containerId) {
+                this.data = data;
+                this.containerId = containerId;
+                this.container = d3.select(`#${containerId}`);
+                this.i = 0; // Initialize counter
+                this.duration = 600; // Smooth transition duration
+                this.isHorizontal = false; // Start with vertical orientation
+                this.zoomBehavior = null;
+                
+                // Responsive dimensions
+                this.updateDimensions();
+                this.setupSVG();
+                this.setupTree();
+                this.initialize();
+                this.setupControls();
+                
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    this.handleResize();
+                });
+            }
+
+            updateDimensions() {
+                const containerElement = document.getElementById(this.containerId);
+                this.width = containerElement.clientWidth;
+                this.height = containerElement.clientHeight;
+                this.margin = { top: 40, right: 120, bottom: 40, left: 120 };
+                
+                // Adjust margins for mobile
+                if (this.width < 768) {
+                    this.margin = { top: 30, right: 60, bottom: 30, left: 60 };
+                }
+                
+                this.innerWidth = this.width - this.margin.left - this.margin.right;
+                this.innerHeight = this.height - this.margin.top - this.margin.bottom;
+            }
+
+            setupSVG() {
+                // Remove existing SVG
+                this.container.select('svg').remove();
+                
+                this.zoomBehavior = d3.zoom()
+                    .scaleExtent([0.3, 3])
+                    .on('zoom', (event) => {
+                        this.g.attr('transform', event.transform);
+                    });
+
+                this.svg = this.container
+                    .append('svg')
+                    .attr('width', this.width)
+                    .attr('height', this.height)
+                    .call(this.zoomBehavior)
+                    .on('dblclick.zoom', null);
+
+                this.g = this.svg
+                    .append('g')
+                    .attr('transform', `translate(${this.margin.left},${this.margin.top})`);
+
+                // Add a background rect for better zoom/pan interaction
+                this.svg.insert('rect', ':first-child')
+                    .attr('width', this.width)
+                    .attr('height', this.height)
+                    .attr('fill', 'transparent');
+            }
+
+            setupTree() {
+                if (this.isHorizontal) {
+                    this.tree = d3.tree()
+                        .size([this.innerHeight, this.innerWidth])
+                        .separation((a, b) => (a.parent === b.parent ? 1 : 1.2));
+                } else {
+                    this.tree = d3.tree()
+                        .size([this.innerWidth, this.innerHeight])
+                        .separation((a, b) => (a.parent === b.parent ? 1 : 1.2));
+                }
+
+                this.root = d3.hierarchy(this.data);
+                
+                if (this.isHorizontal) {
+                    this.root.x0 = this.innerHeight / 2;
+                    this.root.y0 = 0;
+                } else {
+                    this.root.x0 = this.innerWidth / 2;
+                    this.root.y0 = 0;
+                }
+                
+                // Initially collapse all children except root
+                if (this.root.children) {
+                    this.root.children.forEach(this.collapse.bind(this));
+                }
+            }
+
+            setupControls() {
+                // Orientation toggle
+                document.getElementById('vertical-btn').addEventListener('click', () => {
+                    if (this.isHorizontal) {
+                        this.switchOrientation(false);
+                    }
+                });
+
+                document.getElementById('horizontal-btn').addEventListener('click', () => {
+                    if (!this.isHorizontal) {
+                        this.switchOrientation(true);
+                    }
+                });
+
+                // Expand/Collapse all buttons
+                document.getElementById('expand-all-btn').addEventListener('click', () => {
+                    this.expandAll();
+                });
+
+                document.getElementById('collapse-all-btn').addEventListener('click', () => {
+                    this.collapseAll();
+                });
+
+                // Reset zoom button
+                document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+                    this.resetZoom();
+                });
+            }
+
+            switchOrientation(horizontal) {
+                this.isHorizontal = horizontal;
+                
+                // Update button states
+                document.getElementById('vertical-btn').classList.toggle('active', !horizontal);
+                document.getElementById('horizontal-btn').classList.toggle('active', horizontal);
+                
+                // Rebuild tree with new orientation
+                this.setupTree();
+                this.update(this.root);
+                this.resetZoom();
+            }
+
+            expandAll() {
+                this.expandNode(this.root);
+                this.update(this.root);
+                // Auto-center after expanding all
+                setTimeout(() => this.centerTree(), this.duration + 100);
+            }
+
+            collapseAll() {
+                if (this.root.children) {
+                    this.root.children.forEach(this.collapse.bind(this));
+                }
+                this.update(this.root);
+                // Auto-center after collapsing all
+                setTimeout(() => this.centerTree(), this.duration + 100);
+            }
+
+            expandNode(d) {
+                if (d._children) {
+                    d.children = d._children;
+                    d._children = null;
+                }
+                if (d.children) {
+                    d.children.forEach(this.expandNode.bind(this));
+                }
+            }
+
+            getTreeBounds() {
+                // Get all visible nodes
+                const nodes = this.tree(this.root).descendants();
+                
+                if (nodes.length === 0) return null;
+
+                let minX = Infinity, maxX = -Infinity;
+                let minY = Infinity, maxY = -Infinity;
+
+                nodes.forEach(d => {
+                    if (this.isHorizontal) {
+                        // For horizontal layout, normalize positions
+                        d.y = d.depth * Math.min(200, this.innerWidth / 3);
+                        minX = Math.min(minX, d.x);
+                        maxX = Math.max(maxX, d.x);
+                        minY = Math.min(minY, d.y);
+                        maxY = Math.max(maxY, d.y);
+                    } else {
+                        // For vertical layout, normalize positions
+                        d.y = d.depth * Math.min(150, this.innerHeight / 3);
+                        minX = Math.min(minX, d.x);
+                        maxX = Math.max(maxX, d.x);
+                        minY = Math.min(minY, d.y);
+                        maxY = Math.max(maxY, d.y);
+                    }
+                });
+
+                return {
+                    minX, maxX, minY, maxY,
+                    width: maxX - minX,
+                    height: maxY - minY,
+                    centerX: (minX + maxX) / 2,
+                    centerY: (minY + minY) / 2
+                };
+            }
+
+            centerTree() {
+                const bounds = this.getTreeBounds();
+                if (!bounds) return;
+
+                // Calculate the scale to fit the tree within the viewport
+                const padding = 100; // Padding around the tree
+                const scaleX = (this.innerWidth - padding) / Math.max(bounds.width, 1);
+                const scaleY = (this.innerHeight - padding) / Math.max(bounds.height, 1);
+                const scale = Math.min(scaleX, scaleY, 1); // Don't scale up beyond 1
+
+                // Calculate translation to center the tree
+                const translateX = this.margin.left + (this.innerWidth / 2) - (bounds.centerX * scale);
+                const translateY = this.margin.top + (this.innerHeight / 2) - (bounds.centerY * scale);
+
+                // Apply the transform
+                this.svg.transition()
+                    .duration(750)
+                    .call(this.zoomBehavior.transform, 
+                          d3.zoomIdentity.translate(translateX, translateY).scale(scale));
+            }
+
+            resetZoom() {
+                // Center the tree properly instead of just resetting to identity
+                this.centerTree();
+            }
+
+            initialize() {
+                this.update(this.root);
+                // Center the tree after initial render
+                setTimeout(() => this.centerTree(), 100);
+            }
+
+            collapse(d) {
+                if (d.children) {
+                    d._children = d.children;
+                    d._children.forEach(this.collapse.bind(this));
+                    d.children = null;
+                }
+            }
+
+            click(event, d) {
+                if (d.children) {
+                    d._children = d.children;
+                    d.children = null;
+                } else {
+                    d.children = d._children;
+                    d._children = null;
+                }
+                this.update(d);
+            }
+
+            update(source) {
+                // Compute the new tree layout
+                const treeData = this.tree(this.root);
+                const nodes = treeData.descendants();
+                const links = treeData.descendants().slice(1);
+
+                // Normalize for fixed-depth
+                if (this.isHorizontal) {
+                    nodes.forEach(d => {
+                        d.y = d.depth * Math.min(200, this.innerWidth / 3);
+                    });
+                } else {
+                    nodes.forEach(d => {
+                        d.y = d.depth * Math.min(150, this.innerHeight / 3);
+                    });
+                }
+
+                // Update nodes first, then links
+                this.updateNodes(nodes, source);
+                this.updateLinks(links, source);
+
+                // Store the old positions for transition
+                nodes.forEach(d => {
+                    d.x0 = d.x;
+                    d.y0 = d.y;
+                });
+            }
+
+            updateNodes(nodes, source) {
+                const nodeHeight = 40;
+                const nodeWidth = this.width < 768 ? 100 : 120;
+
+                // Update the nodes
+                const node = this.g.selectAll('g.node')
+                    .data(nodes, d => d.id || (d.id = ++this.i));
+
+                // Enter any new nodes at the parent's previous position
+                const nodeEnter = node.enter().append('g')
+                    .attr('class', d => `node stage-${d.data.stage}`)
+                    .attr('transform', d => this.getTransform(source.y0, source.x0))
+                    .style('opacity', 0)
+                    .on('click', (event, d) => this.click(event, d));
+
+                // Add rectangles for the nodes
+                nodeEnter.append('rect')
+                    .attr('width', 1e-6)
+                    .attr('height', 1e-6)
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .style('fill', '#fff')
+                    .style('stroke', '#3498db')
+                    .style('stroke-width', '2px')
+                    .attr('rx', 6)
+                    .attr('ry', 6);
+
+                // Add labels for the nodes
+                nodeEnter.append('text')
+                    .attr('dy', '0.35em')
+                    .attr('text-anchor', 'middle')
+                    .text(d => d.data.name)
+                    .style('font', '12px sans-serif')
+                    .style('fill', '#333')
+                    .style('font-weight', '500')
+                    .style('opacity', 0);
+
+                // Merge enter and update selections
+                const nodeUpdate = nodeEnter.merge(node);
+
+                // Transition nodes to their new position
+                const nodeTransition = nodeUpdate.transition()
+                    .duration(this.duration)
+                    .ease(d3.easeCubicInOut)
+                    .attr('transform', d => this.getTransform(d.y, d.x))
+                    .style('opacity', 1);
+
+                // Update the rectangles with smooth scaling
+                nodeTransition.select('rect')
+                    .attr('width', nodeWidth)
+                    .attr('height', nodeHeight)
+                    .attr('x', -nodeWidth/2)
+                    .attr('y', -nodeHeight/2)
+                    .style('fill', d => d._children ? '#3498db' : '#fff')
+                    .style('stroke', d => d._children ? '#2980b9' : '#3498db');
+
+                // Update text with smooth fade
+                nodeTransition.select('text')
+                    .style('opacity', 1)
+                    .style('fill', d => d._children ? 'white' : '#333');
+
+                // Update node classes for styling
+                nodeUpdate.classed('collapsed', d => d._children);
+
+                // Remove any exiting nodes with smooth transitions
+                const nodeExit = node.exit();
+                
+                const nodeExitTransition = nodeExit.transition()
+                    .duration(this.duration)
+                    .ease(d3.easeCubicInOut)
+                    .attr('transform', d => this.getTransform(source.y, source.x))
+                    .style('opacity', 0)
+                    .remove();
+
+                // Shrink rectangles to nothing
+                nodeExitTransition.select('rect')
+                    .attr('width', 1e-6)
+                    .attr('height', 1e-6)
+                    .attr('x', 0)
+                    .attr('y', 0);
+
+                // Fade out text
+                nodeExitTransition.select('text')
+                    .style('opacity', 0);
+            }
+
+            updateLinks(links, source) {
+                // Update the links
+                const link = this.g.selectAll('path.link')
+                    .data(links, d => d.id);
+
+                // Enter any new links at the parent's previous position
+                const linkEnter = link.enter().insert('path', 'g')
+                    .attr('class', 'link')
+                    .style('fill', 'none')
+                    .style('stroke', '#bdc3c7')
+                    .style('stroke-width', '2px')
+                    .style('opacity', 0)
+                    .attr('d', d => {
+                        const o = { x: source.x0, y: source.y0 };
+                        return this.diagonal(o, o);
+                    });
+
+                // Merge enter and update selections
+                const linkUpdate = linkEnter.merge(link);
+
+                // Transition links to their new position
+                linkUpdate.transition()
+                    .duration(this.duration)
+                    .ease(d3.easeCubicInOut)
+                    .style('opacity', 1)
+                    .attr('d', d => this.diagonal(d, d.parent));
+
+                // Remove any exiting links
+                link.exit().transition()
+                    .duration(this.duration)
+                    .ease(d3.easeCubicInOut)
+                    .style('opacity', 0)
+                    .attr('d', d => {
+                        const o = { x: source.x, y: source.y };
+                        return this.diagonal(o, o);
+                    })
+                    .remove();
+            }
+
+            getTransform(y, x) {
+                return this.isHorizontal ? 
+                    `translate(${y},${x})` : 
+                    `translate(${x},${y})`;
+            }
+
+            diagonal(s, d) {
+                if (this.isHorizontal) {
+                    // Horizontal layout
+                    return `M ${s.y} ${s.x}
+                           C ${(s.y + d.y) / 2} ${s.x},
+                             ${(s.y + d.y) / 2} ${d.x},
+                             ${d.y} ${d.x}`;
+                } else {
+                    // Vertical layout
+                    return `M ${s.x} ${s.y}
+                           C ${s.x} ${(s.y + d.y) / 2},
+                             ${d.x} ${(s.y + d.y) / 2},
+                             ${d.x} ${d.y}`;
+                }
+            }
+
+            handleResize() {
+                // Debounce resize events
+                clearTimeout(this.resizeTimeout);
+                this.resizeTimeout = setTimeout(() => {
+                    this.updateDimensions();
+                    this.setupSVG();
+                    this.setupTree();
+                    this.update(this.root);
+                    // Re-center after resize
+                    setTimeout(() => this.centerTree(), 100);
+                }, 250);
+            }
+        }
+
+        // Initialize the interactive tree
+        const tree = new InteractiveCollapsibleTree(treeData, 'tree-container');
+    </script>
+</body>
+</html>
