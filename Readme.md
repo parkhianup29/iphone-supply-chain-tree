@@ -1,4 +1,4 @@
-markdown# iPhone Supply Chain Interactive Tree
+# iPhone Supply Chain Interactive Tree
 
 A responsive D3.js tree visualization for iPhone supply chain hierarchy with interactive controls and smooth animations.
 
